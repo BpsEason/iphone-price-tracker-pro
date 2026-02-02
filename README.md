@@ -43,7 +43,7 @@ graph TD
 ### 1. 環境預熱
 
 ```bash
-git clone https://github.com/your-repo/iphone-price-tracker.git
+git clone https://github.com/BpsEason/iphone-price-tracker-pro.git
 cd iphone-price-tracker
 cp .env.example .env  # 修改 POSTGRES_PASSWORD 與 JWT_SECRET
 ```
