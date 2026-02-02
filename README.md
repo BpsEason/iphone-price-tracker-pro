@@ -63,6 +63,64 @@ docker-compose up -d --build
 
 ---
 
+### 🏗️ 補充：自動化部署與數據初始化流程
+
+本專案透過自研的 `entrypoint.sh` 腳本 實作了 **自癒式啟動 (Self-healing Startup)** 流程。當您執行 `docker-compose up` 時，後端容器將依序完成以下自動化任務：
+
+#### 1. 服務依賴連線檢查 (Service Dependency Check)
+
+系統會自動偵測 `db:5432` 的連線狀態。採用通用的 Socket 測試邏輯，確保資料庫完全就緒後才進入後續步驟，有效避免因啟動順序競爭 (Race Condition) 導致的後端崩潰。
+
+#### 2. 自動化架構遷移 (Alembic Migration)
+
+- **主服務自動同步**：當容器以 API 模式啟動時，會自動檢查 `migrations/versions` 目錄。
+- **架構演進**：若檢測到本地無遷移檔案，系統將自動初始化 Schema 並生成 `Initial_schema`；若已存在遷移腳本，則自動執行 `alembic upgrade head` 將資料庫升級至最新狀態。
+
+#### 3. 智能數據填充 (Smart Seeding)
+
+為了確保開發者在啟動後即可看到完整的視覺化圖表，系統會自動執行 `seed.py`：
+
+- **型號初始化**：自動建立如 `iPhone 16 Pro` 等標準化產品規格。
+- **歷史數據生成**：回溯生成模擬的 30 天價格趨勢數據，為前端 `Chart.js` 提供立即呈現的視覺內容。
+- **冪等性設計**：若偵測到資料已存在，Seed 任務將自動跳過，避免重複插入。
+
+#### 4. 分離式啟動邏輯 (Decoupled Startup)
+
+系統具備智能身分識別機制：
+
+- **API 模式**：執行資料庫遷移與數據填充。
+- **Worker/Beat 模式**：檢測到 `CELERY_WORKER=true` 時，將跳過遷移步驟直接啟動任務處理引擎，避免多個容器同時修改資料庫結構導致的鎖死。
+
+---
+
+### 📊 資料庫管理工具：pgAdmin 4
+
+為了簡化開發與調試流程，系統整合了 **pgAdmin 4**。它是一個功能強大的 PostgreSQL 圖形化管理介面，允許開發者直接觀察 `price_history` 的數據分佈或手動校準 `product_models`。
+
+#### 1. 自動化連線配置 (Pre-configured Access)
+
+本專案採用了 **「零配置（Zero-config）」** 啟動策略：
+
+- **自動伺服器導入**：透過自定義的 `Dockerfile.pgadmin`，系統在啟動時會自動讀取 `servers.json` 並將資料庫伺服器導入至管理介面中 。
+
+- **免密碼登入機制**：利用 `PGADMIN_CONFIG_PGPASSFILE` 環境變數掛載密碼檔，開發者進入介面後即可直接連通資料庫，無需手動輸入繁瑣的連線資訊 。
+
+#### 2. 訪問資訊 (Access Details)
+
+- **入口位址**: `http://localhost:5050`
+- **管理員帳號**: `admin@admin.com` (預設)
+- **管理員密碼**: `admin` (預設)
+
+#### 3. 為什麼我們在架構中加入它？
+
+- **數據驗證**：在爬蟲開發階段，可即時確認 `UPSERT` 邏輯是否正確更新了價格，或檢查 `recorded_at` 的時區是否符合 `Asia/Taipei` 規範 。
+
+- **效能分析**：可直接透過 EXPLAIN 分析 SQL 查詢計畫，針對 `idx_history_product_time` 複合索引進行壓力測試 。
+
+- **安全性加固**：即使在容器環境中，我們仍使用非 root 帳號 (UID 5050) 運行服務，確保符合生產環境的安全基準 。
+
+---
+
 ## ✨ 專案技術亮點 (Technical Highlights)
 
 - **多階段構建 (Multi-stage Build)**：前端利用 Node 編譯，最終僅將 `dist` 靜態檔部署於輕量化 Nginx 鏡像中，提升部署速度並減少攻擊面。
