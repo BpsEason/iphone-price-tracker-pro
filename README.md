@@ -43,7 +43,7 @@ graph TD
 ### 1. 環境預熱
 
 ```bash
-git clone https://github.com/your-repo/iphone-price-tracker.git
+git clone https://github.com/BpsEason/iphone-price-tracker-pro.git
 cd iphone-price-tracker
 cp .env.example .env  # 修改 POSTGRES_PASSWORD 與 JWT_SECRET
 ```
@@ -72,6 +72,21 @@ docker-compose up -d --build
   - UPSERT (ON CONFLICT) 確保數據完整性
   - 複合索引 (`product_id`, `recorded_at`) 保持查詢高效
 - **安全性設計**：JWT 狀態無關驗證，保障收藏與提醒功能的隱私安全。
+
+---
+
+## 📈 營運與自動化亮點 (Operational Highlights)
+
+### 1. 分散式任務排程 (Precision Scheduling)
+
+- **Celery Beat 定時觸發**：系統不僅能手動觸發爬蟲，更透過 Celery Beat 實現每小時自動校準。針對電商價格波動劇烈的時段（如午夜 00:00），排程任務能精準捕捉第一手降價資訊。
+- **負載平衡與擴展性**：爬蟲任務被派發至 Redis 隊列，支援多個 Worker 節點並行處理。即使未來擴展至數萬個 SKU，也只需增加 Worker 容器即可實現線性擴展。
+
+### 2. 結構化日誌管理 (Structured Logging)
+
+- **集中式日誌追蹤**：全系統整合 Python `logging` 模組，對 API 請求與爬蟲進度進行等級化記錄（INFO/ERROR）。
+- **爬蟲行為追蹤**：針對每一個爬蟲 Request，日誌皆詳細記錄「目標平台」、「響應耗時」與「解析狀態」。當電商改版導致解析失敗時，開發者能透過日誌瞬間鎖定損壞的 Selector 路徑。
+- **Docker Logs 聚合**：透過 Docker 容器化管理，可輕鬆使用 `docker logs -f` 實時監控各服務狀態，或對接 ELK Stack 進行視覺化分析。
 
 ---
 
