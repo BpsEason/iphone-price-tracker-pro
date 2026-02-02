@@ -45,7 +45,6 @@ graph TD
 ```bash
 git clone https://github.com/BpsEason/iphone-price-tracker-pro.git
 cd iphone-price-tracker
-cp .env.example .env  # 修改 POSTGRES_PASSWORD 與 JWT_SECRET
 ```
 
 ### 2. 容器化編排
@@ -106,5 +105,73 @@ docker-compose up -d --build
 - [ ] **智慧預測**：導入 Prophet 模型，預測促銷期間降價可能性
 - [ ] **即時通知**：支援 WebSocket 推送與 Telegram Bot 通知
 - [ ] **使用者系統**：支援個人化收藏與提醒設定
+
+---
+
+## 📌 問與答 Q&A 精選
+
+### 🏗️ 架構與技術選型 (Architecture & Tech Stack)
+
+**Q1. 為什麼選擇 FastAPI 而不是 Flask 或 Django？**
+
+- **非同步效能**：FastAPI 原生支援 `async/await`，這在處理大量爬蟲 I/O 請求時，能顯著提升併發處理能力。
+- **開發效率**：利用 Python Type Hints 自動生成 OpenAPI (Swagger) 文件，降低前後端溝通成本。
+- **數據安全性**：內建 Pydantic 驗證，確保爬蟲抓回來的非結構化數據在寫入資料庫前，格式完全正確。
+
+**Q2. 為什麼要用 Celery + Redis 來處理爬蟲任務？**
+
+- **任務解耦**：爬蟲是高延遲且具備不確定性的任務，若直接在 API 執行會導致請求阻塞。
+- **負載平衡**：透過 Redis 作為 Message Broker，將任務派發給背景 Worker 執行，確保前端介面隨時保持流暢回應。
+
+**Q3. 為什麼選擇 PostgreSQL 而不是 MySQL？**
+
+- **半結構化支援**：比價系統需要處理不同平台的商品資訊，PostgreSQL 的 JSONB 支援讓我們能彈性存取非規格化數據。
+- **複雜查詢優化**：在處理萬級以上的歷史價格數據時，PostgreSQL 的索引優化（如複合索引）能確保圖表查詢維持毫秒級響應。
+
+---
+
+### 🕸️ 電商爬蟲攻堅 (Web Scraping Strategy)
+
+**Q10. Momo 與 PChome 的爬蟲挑戰不同，你分別是如何解決的？**
+
+- **Momo (針對反爬與 TLS 檢測)**：
+- **策略**：Momo 檢測機制嚴格，我們採取「資料源優先級」策略。優先抓取隱藏在 HTML 中的 **JSON-LD (結構化數據)**，這類數據穩定且不需渲染 Javascript，能有效降低被標記為機器人的風險。
+- **行為模擬**：實作隨機 User-Agent 切換與隨機請求延遲 (Random Delay)，模擬真人瀏覽行為。
+
+- **PChome (針對動態載入與 API)**：
+- **策略**：透過瀏覽器開發者工具進行**逆向工程**，直接調用其背景數據接口 (Endpoint)。這比解析 HTML 快 10 倍，且數據精準度最高。
+- **降級機制**：若 API 變更，系統會自動切換為正則表達式解析 HTML 腳本區塊中的 `window.data`。
+
+---
+
+### 📊 資料建模與業務邏輯 (Data Modeling & Logic)
+
+**Q4. 你如何設計資料模型來支援跨平台比價？**
+
+- **三層解耦架構**：
+
+1. **ProductModel**：定義標準規格（如 iPhone 16 Pro 256GB）。
+2. **Product**：定義具體平台賣場（Momo 連結、PChome 連結）。
+3. **Price / PriceHistory**：記錄時間序列價格。
+
+- **核心價值**：這種設計確保了「同一型號」在「不同平台」的價格能精準對齊，避免資料孤島。
+
+**Q6. 為什麼要鎖定時區為 Asia/Taipei？**
+
+- **統計一致性**：價格歷史分析需要精準的時間軸，若時區不一會導致跨日統計產生偏差（例如將電商雙 11 的 00:00 誤判為前一天）。
+
+---
+
+### 🛠️ 穩定性與亮點 (Reliability & Highlights)
+
+**Q11. 如何確保系統能 24/7 穩定運作並讓問題可見？**
+
+- **自動化排程 (Celery Beat)**：實作無人值守數據採集，確保系統能精準捕捉瞬時破盤價。
+- **可觀測性 (Logging)**：實作**結構化日誌系統**。每筆爬蟲皆記錄平台、耗時與狀態。當電商改版時，系統會立即拋出 `ParseError`，開發者能透過 **Flower** 監控介面秒級定位問題。
+
+**Q9. 這個系統最大的亮點是什麼？**
+
+- **完整端到端流程**：從數據抓取、清洗、存儲、分析到前端視覺化的全自動閉環。
+- **工程韌性**：具備多層容錯策略 (Fallback) 與分散式架構，展現了「生產級系統」的設計思維而非單純的腳本撰寫。
 
 ---
