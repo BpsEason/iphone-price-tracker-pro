@@ -1,0 +1,21 @@
+FROM dpage/pgadmin4
+
+USER root
+
+# 建立配置目錄
+RUN mkdir -p /var/lib/pgadmin /pgadmin4
+
+# 1. 複製伺服器定義檔到官方自動導入路徑
+COPY servers.json /pgadmin4/servers.json
+
+# 2. 建立密碼檔 (格式: host:port:dbname:user:password)
+RUN echo "db:5432:price_db:user:password" > /var/lib/pgadmin/pgpass && \
+    chown 5050:5050 /var/lib/pgadmin/pgpass /pgadmin4/servers.json && \
+    chmod 600 /var/lib/pgadmin/pgpass
+
+# 3. 設定環境變數，確保 pgAdmin 啟動時自動導入伺服器與密碼檔
+ENV PGADMIN_CONFIG_PGPASSFILE="'/var/lib/pgadmin/pgpass'"
+# 使用 PGADMIN_SETUP_SERVERS 是自動導入伺服器最穩定的做法
+ENV PGADMIN_SETUP_SERVERS="'/pgadmin4/servers.json'"
+
+USER 5050

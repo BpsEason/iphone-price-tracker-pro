@@ -1,0 +1,6 @@
+.git
+.venv
+.playwright_browsers
+__pycache__
+*.pyc
+logs/* # <-- 改成這樣，確保資料夾結構能被 Docker 處理，但不帶入舊檔案
